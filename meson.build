@@ -25,4 +25,4 @@ sdbus = dependency(get_option('sd-bus-provider'))
 endif
 add_project_arguments('-DHAVE_' + sdbus.name().to_upper() + '=1', language: 'c')
 
-executable('dbus-controller-dummy', ['dbus.c', 'main.c', 'policy.c', 'syslog.c'], dependencies: [sdbus])
+executable('dbus-controller-dummy', ['controller.c', 'dbus.c', 'main.c', 'policy.c', 'syslog.c'], dependencies: [sdbus])

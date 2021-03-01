@@ -1,6 +1,8 @@
 #ifndef util_h_INCLUDED
 #define util_h_INCLUDED
 
+#include <stdlib.h>
+
 #define handle_error(msg) \
            do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
