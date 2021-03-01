@@ -39,7 +39,7 @@ static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 
 	policy(m);
 
-	sd_bus_error error;
+	sd_bus_error error = SD_BUS_ERROR_NULL;
         r = sd_bus_call(bus_controller, m, 0, &error, NULL);
         if (r < 0) {
 	        printf("sd_bus_call falied: %s %s\n", error.name, error.message);
