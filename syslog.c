@@ -1,24 +1,25 @@
-#include "util.h"
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+#include <unistd.h>
 
-int syslog_connect_socket(const char* syslog_path) {
-	struct sockaddr_un addr;
-	socklen_t addr_size;
-	int logfd = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	/* Clear structure */
-	    addr.sun_family = AF_UNIX;
-	    strncpy(addr.sun_path, syslog_path,
-	    sizeof(addr.sun_path) - 1);
+static const struct {
+	short sun_family;
+	char sun_path[9];
+} log_addr = {
+	AF_UNIX,
+	"/dev/log"
+};
 
-	   addr_size = sizeof(struct sockaddr_un);
-	    int ret = connect(logfd, (struct sockaddr *) &addr,
-	 addr_size);
-	    if (ret == -1)
-	handle_error("connect");
-	return logfd;
+int syslog_connect_socket() {
+	int log_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (log_fd < 0)
+		return -1;
+
+	int r = connect(log_fd, (void *)&log_addr, sizeof log_addr);
+	if (r < 0) {
+		close(log_fd);
+		perror("syslog");
+	}
+
+	return r == 0 ? log_fd : -1;
 }

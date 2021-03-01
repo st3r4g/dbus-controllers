@@ -17,7 +17,6 @@
 #define STR_INT_MAX 16
 
 static const char* default_dbus_socket_path = "/run/dbus/system_bus_socket";
-static const char* syslog_path = "/dev/log";
 static const char* dummy_machine_id = "00000000000000000000000000000001";
 
 static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
@@ -77,27 +76,29 @@ positional arguments:\n\
 \n\
 optional arguments:\n\
   -d                    dbus socket path (default: %s)\n\
-  -l                    syslog socket path (default: %s)\n\
+  -s                    open a syslog connection for dbus-broker\n\
   -3                    notify readiness on fd 3\n\
   -h                    show this help message and exit\n";
 
 int main(int argc, char* argv[]) {
 	const char* dbus_socket_path = default_dbus_socket_path;
 	bool notif = false;
+	bool syslog = false;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "hd:3")) != -1) {
+	while ((opt = getopt(argc, argv, "d:hs3")) != -1) {
 		switch (opt) {
 			case 'd': dbus_socket_path = optarg; break;
+			case 's': syslog = true; break;
 			case '3': check_3_open(); notif = true; break;
 			default:
-				printf(usage, default_dbus_socket_path, syslog_path);
+				printf(usage, default_dbus_socket_path);
 				return EXIT_FAILURE;
 		}
 	}
 
 	if (argc <= optind) {
-		printf(usage, default_dbus_socket_path, syslog_path);
+		printf(usage, default_dbus_socket_path);
 		return EXIT_FAILURE;
 	}
 
@@ -106,28 +107,38 @@ int main(int argc, char* argv[]) {
 	int controller[2];
 	socketpair(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, controller);
 
-	//int logfd = syslog_connect_socket(syslog_path);
+	int logfd = syslog ? syslog_connect_socket() : -1;
 
 	pid_t cpid = fork();
 	if (cpid == 0) {
 		close(controller[0]);
 		if (notif) close(3);
-		char str_log[STR_INT_MAX], str_controller[STR_INT_MAX];
+		char str_controller[STR_INT_MAX];
 		snprintf(str_controller, sizeof(str_controller), "%d", controller[1]);
-		//snprintf(str_log, sizeof(str_log), "%d", logfd);
-		const char * const argv[] = {
-			"dbus-broker",
-			"--controller", str_controller,
-			//"--log", str_log,
-			"--machine-id", dummy_machine_id,
-		NULL};
-		execvp(broker_path, (char * const *)argv);
+		if (logfd < 0) {
+			const char* const cmdline[] = {
+				"dbus-broker",
+				"--controller", str_controller,
+				"--machine-id", dummy_machine_id,
+			NULL};
+			execvp(broker_path, (char* const*)cmdline);
+		} else {
+			char str_log[STR_INT_MAX];
+			snprintf(str_log, sizeof(str_log), "%d", logfd);
+			const char* const cmdline_log[] = {
+				"dbus-broker",
+				"--controller", str_controller,
+				"--machine-id", dummy_machine_id,
+				"--log", str_log,
+			NULL};
+			execvp(broker_path, (char* const*)cmdline_log);
+		}
 		perror("Failed to execute dbus-broker");
 		_exit(EXIT_FAILURE);
 		/* NOTREACHED */
 	} else {
 		close(controller[1]);
-		//close(logfd);
+		if (logfd >= 0) close(logfd);
 		sd_bus* bus_controller;
 		int r;
 		r = sd_bus_new(&bus_controller);
