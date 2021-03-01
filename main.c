@@ -75,7 +75,7 @@ optional arguments:\n\
   -h                    show this help message and exit\n";
 
 int main(int argc, char* argv[]) {
-	char* dbus_socket_path = NULL;
+	const char* dbus_socket_path = default_dbus_socket_path;
 
 	int opt;
 	while ((opt = getopt(argc, argv, "hd:")) != -1) {
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
 		//sd_bus_add_filter(bus_controller, NULL, launcher_on_message, NULL);
 		r = sd_bus_start(bus_controller);
 		if (r < 0) handle_error("sd_bus_start");
-		if (launcher_add_listener(bus_controller, dbus_create_socket(default_dbus_socket_path)))
+		if (launcher_add_listener(bus_controller, dbus_create_socket(dbus_socket_path)))
 			printf("AddListener failed\n");
 
 		int wstatus;
