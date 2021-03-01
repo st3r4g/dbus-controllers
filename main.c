@@ -119,11 +119,16 @@ int main(int argc, char* argv[]) {
 		close(controller[1]);
 		//close(logfd);
 		sd_bus* bus_controller;
-		sd_bus_new(&bus_controller);
-		sd_bus_set_fd(bus_controller, controller[0], controller[0]);
-		sd_bus_add_object_vtable(bus_controller, NULL, "/org/bus1/DBus/Controller", "org.bus1.DBus.Controller", launcher_vtable, NULL);
+		int r;
+		r = sd_bus_new(&bus_controller);
+		if (r < 0) handle_error("sd_bus_new");
+		r = sd_bus_set_fd(bus_controller, controller[0], controller[0]);
+		if (r < 0) handle_error("sd_bus_set_fd");
+		r = sd_bus_add_object_vtable(bus_controller, NULL, "/org/bus1/DBus/Controller", "org.bus1.DBus.Controller", launcher_vtable, NULL);
+		if (r < 0) handle_error("sd_bus_add_object_vtable");
 		//sd_bus_add_filter(bus_controller, NULL, launcher_on_message, NULL);
-		sd_bus_start(bus_controller);
+		r = sd_bus_start(bus_controller);
+		if (r < 0) handle_error("sd_bus_start");
 		if (launcher_add_listener(bus_controller, dbus_create_socket(default_dbus_socket_path)))
 			printf("AddListener failed\n");
 
