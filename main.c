@@ -5,6 +5,8 @@
 
 #include "sd-bus.h"
 
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -62,6 +64,10 @@ const sd_bus_vtable launcher_vtable[] = {
 	SD_BUS_VTABLE_END
 };
 
+static void check_3_open() {
+	if (fcntl(3, F_GETFD) < 0) handle_error("readiness notification");
+}
+
 const char *usage = "usage: dbus-controller-dummy [-h] dbus-broker\n\
 \n\
 Dummy controller for dbus-broker\n\
@@ -72,15 +78,18 @@ positional arguments:\n\
 optional arguments:\n\
   -d                    dbus socket path (default: %s)\n\
   -l                    syslog socket path (default: %s)\n\
+  -3                    notify readiness on fd 3\n\
   -h                    show this help message and exit\n";
 
 int main(int argc, char* argv[]) {
 	const char* dbus_socket_path = default_dbus_socket_path;
+	bool notif = false;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "hd:")) != -1) {
+	while ((opt = getopt(argc, argv, "hd:3")) != -1) {
 		switch (opt) {
 			case 'd': dbus_socket_path = optarg; break;
+			case '3': check_3_open(); notif = true; break;
 			default:
 				printf(usage, default_dbus_socket_path, syslog_path);
 				return EXIT_FAILURE;
@@ -102,6 +111,7 @@ int main(int argc, char* argv[]) {
 	pid_t cpid = fork();
 	if (cpid == 0) {
 		close(controller[0]);
+		if (notif) close(3);
 		char str_log[STR_INT_MAX], str_controller[STR_INT_MAX];
 		snprintf(str_controller, sizeof(str_controller), "%d", controller[1]);
 		//snprintf(str_log, sizeof(str_log), "%d", logfd);
@@ -131,6 +141,11 @@ int main(int argc, char* argv[]) {
 		if (r < 0) handle_error("sd_bus_start");
 		if (launcher_add_listener(bus_controller, dbus_create_socket(dbus_socket_path)))
 			printf("AddListener failed\n");
+
+		if (notif) {
+			write(3, "\n", 1); //dbus ready to accept connections
+			close(3);
+		}
 
 		int wstatus;
 		waitpid(cpid, &wstatus, 0);
