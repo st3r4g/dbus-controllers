@@ -91,6 +91,10 @@ int main(int argc, char* argv[]) {
 		close(controller[1]);
 		if (logfd >= 0) close(logfd);
 
+#ifdef HAVE_S6
+		add_dir("/usr/share/dbus-1/system-services");
+#endif
+
 		controller_setup(controller[0], dbus_socket_path);
 
 		if (notif) {
@@ -98,6 +102,7 @@ int main(int argc, char* argv[]) {
 			close(3);
 		}
 
+		controller_run();
 		int wstatus;
 		waitpid(cpid, &wstatus, 0);
 	}

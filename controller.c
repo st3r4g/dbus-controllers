@@ -3,6 +3,8 @@
 #include "sd-bus.h"
 #include "util.h"
 
+#include <libgen.h>
+
 static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 	sd_bus_message *m = NULL;
 	int r;
@@ -28,6 +30,44 @@ static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 	return 0;
 }
 
+static int on_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+	sd_bus* bus_controller = userdata;
+	/*
+         * TODO: properly check for signal type
+         */
+	const char* object_path = sd_bus_message_get_path(m);
+	//printf("signal received: %s\n", object_path);
+	uint64_t serial;
+	int r = sd_bus_message_read(m, "t", &serial);
+#ifdef HAVE_S6
+	char* path = strdup(object_path);
+	r = start_service(atoi(basename(path)));
+	free(path);
+#endif
+	if (r != 0) {
+		r = sd_bus_call_method(bus_controller, NULL, object_path, "org.bus1.DBus.Name", "Reset", NULL, NULL, "t", serial);
+	}
+	return 0;
+/*        Launcher *launcher = userdata;
+        const char *path, *suffix;
+        int r = 0;
+
+        path = sd_bus_message_get_path(m);
+        if (!path)
+                return 0;
+
+        suffix = string_prefix(path, "/org/bus1/DBus/Name/");
+        if (suffix) {
+                if (sd_bus_message_is_signal(m, "org.bus1.DBus.Name", "Activate"))
+                        r = launcher_on_name_activate(launcher, m, suffix);
+        } else if (strcmp(path, "/org/bus1/DBus/Broker") == 0) {
+                if (sd_bus_message_is_signal(m, "org.bus1.DBus.Broker", "SetActivationEnvironment"))
+                        r = launcher_on_set_activation_environment(launcher, m);
+        }
+
+        return error_trace(r);*/
+}
+
 static int bus_method_reload_config(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 	/*
          * Do nothing...
@@ -41,8 +81,9 @@ static const sd_bus_vtable launcher_vtable[] = {
 	SD_BUS_VTABLE_END
 };
 
+static sd_bus* bus_controller;
+
 void controller_setup(int fd, const char* dbus_socket_path) {
-	sd_bus* bus_controller;
 	int r;
 	r = sd_bus_new(&bus_controller);
 	if (r < 0) handle_error("sd_bus_new");
@@ -50,9 +91,28 @@ void controller_setup(int fd, const char* dbus_socket_path) {
 	if (r < 0) handle_error("sd_bus_set_fd");
 	r = sd_bus_add_object_vtable(bus_controller, NULL, "/org/bus1/DBus/Controller", "org.bus1.DBus.Controller", launcher_vtable, NULL);
 	if (r < 0) handle_error("sd_bus_add_object_vtable");
-	//sd_bus_add_filter(bus_controller, NULL, launcher_on_message, NULL);
+	sd_bus_add_filter(bus_controller, NULL, on_message, bus_controller);
+	if (r < 0) handle_error("sd_bus_add_filter");
 	r = sd_bus_start(bus_controller);
 	if (r < 0) handle_error("sd_bus_start");
 	if (launcher_add_listener(bus_controller, dbus_create_socket(dbus_socket_path)))
 		printf("AddListener failed\n");
+
+#ifdef HAVE_S6
+        add_service(bus_controller);
+#endif
+}
+
+void controller_run() {
+        for (;;) {
+                /* Process requests */
+                int r = sd_bus_process(bus_controller, NULL);
+                if (r < 0) handle_error("Failed to process bus");
+                if (r > 0) /* we processed a request, try to process another one, right-away */
+                        continue;
+
+                /* Wait for the next request to process */
+                r = sd_bus_wait(bus_controller, (uint64_t) -1);
+                if (r < 0) handle_error("Failed to wait on bus");
+        }
 }
