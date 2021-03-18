@@ -1,0 +1,20 @@
+#!/bin/sh -e
+# Generate s6-rc service definitions for dbus services
+# usage: pass the absolute paths of dbus service definitions, i.e.
+# /usr/share/dbus-1/system-services/* (for the system bus)
+# or /usr/share/dbus-1/services/* (for the session bus)
+
+mkdir 'dbus'
+cd 'dbus'
+
+for service in "$@"; do
+	name_=$(awk -F= '$1 == "Name" {print $2}' "$service")
+	exec_=$(awk -F= '$1 == "Exec" {print $2}' "$service")
+	systemdservice_=$(awk -F= '$1 == "SystemdService" {print $2}' "$service")
+
+	mkdir $name_
+	echo 'longrun' >> "$name_/type"
+	echo '#!/bin/execlineb -P' >> "$name_/run"
+	echo "$exec_" >> "$name_/run"
+	chmod +x "$name_/run"
+done
