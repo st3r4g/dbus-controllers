@@ -76,8 +76,8 @@ void add_dir(const char* path) {
 		if (namelist[n]->d_name[0] != '.') {
 			struct service service = {0};
 			ini_parse(namelist[n]->d_name, handler, &service);
-			if (service.name && service.systemd_service && service.user && strcmp(service.name, "org.bluez")) {
-				printf("%s %s %s\n", service.name, service.systemd_service, service.user);
+			if (service.name && strcmp(service.name, "org.bluez")) {
+				fprintf(stderr, "%s\n", service.name);
 				tll_push_back(service_list, service);
 			}
 		}
@@ -107,13 +107,15 @@ static struct service *find_service_by_id(int id) {
         return NULL;
 }
 
+const char* s6rc_livedir; // TODO: pass around properly
+
 int start_service(int id) {
 	int r = -1;
 	struct service* service = find_service_by_id(id);
 	if (service) {
 		//printf("%s\n", service->systemd_service);
 		char cmd[256];
-		sprintf(cmd, "s6-rc change %s", service->systemd_service);
+		sprintf(cmd, "s6-rc -l %s change %s", s6rc_livedir, service->name);
 		fprintf(stderr, "%s\n", cmd);
 		r = system(cmd);
 	}

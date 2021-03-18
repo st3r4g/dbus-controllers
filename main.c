@@ -12,6 +12,11 @@
 #define STR_INT_MAX 16
 
 static const char* default_dbus_socket_path = "/run/dbus/system_bus_socket";
+#ifdef HAVE_S6
+static const char* default_dbus_servicedir = "/usr/share/dbus-1/system-services";
+static const char* default_s6rc_livedir = "/run/s6-rc";
+extern const char* s6rc_livedir; // TODO: pass around properly
+#endif
 static const char* dummy_machine_id = "00000000000000000000000000000001";
 
 static void check_3_open() {
@@ -28,22 +33,44 @@ positional arguments:\n\
 optional arguments:\n\
   -d                    dbus socket path (default: %s)\n\
   -s                    open a syslog connection for dbus-broker\n\
-  -3                    notify readiness on fd 3\n\
+  -3                    notify readiness on fd 3\n"
+#ifdef HAVE_S6
+"\n\
+  -a                    dbus service directory (default: %s)\n\
+  -l                    s6-rc livedir (default: %s)\n"
+#endif
+"\n\
   -h                    show this help message and exit\n";
 
 int main(int argc, char* argv[]) {
 	const char* dbus_socket_path = default_dbus_socket_path;
 	bool notif = false;
 	bool syslog = false;
+#ifdef HAVE_S6
+	const char* dbus_servicedir = default_dbus_servicedir;
+	s6rc_livedir = default_s6rc_livedir;
+#endif
 
 	int opt;
+#ifdef HAVE_S6
+	while ((opt = getopt(argc, argv, "a:d:hl:s3")) != -1) {
+#else
 	while ((opt = getopt(argc, argv, "d:hs3")) != -1) {
+#endif
 		switch (opt) {
 			case 'd': dbus_socket_path = optarg; break;
 			case 's': syslog = true; break;
 			case '3': check_3_open(); notif = true; break;
+#ifdef HAVE_S6
+			case 'a': dbus_servicedir = optarg; break;
+			case 'l': s6rc_livedir = optarg; break;
+#endif
 			default:
-				printf(usage, default_dbus_socket_path);
+				printf(usage, default_dbus_socket_path
+#ifdef HAVE_S6
+				, default_dbus_servicedir, default_s6rc_livedir
+#endif
+				);
 				return EXIT_FAILURE;
 		}
 	}
@@ -92,7 +119,7 @@ int main(int argc, char* argv[]) {
 		if (logfd >= 0) close(logfd);
 
 #ifdef HAVE_S6
-		add_dir("/usr/share/dbus-1/system-services");
+		add_dir(dbus_servicedir);
 #endif
 
 		controller_setup(controller[0], dbus_socket_path);
