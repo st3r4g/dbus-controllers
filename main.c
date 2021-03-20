@@ -13,7 +13,6 @@
 
 static const char* default_dbus_socket_path = "/run/dbus/system_bus_socket";
 #ifdef HAVE_S6
-static const char* default_dbus_servicedir = "/usr/share/dbus-1/system-services";
 static const char* default_s6rc_livedir = "/run/s6-rc";
 extern const char* s6rc_livedir; // TODO: pass around properly
 #endif
@@ -36,7 +35,6 @@ optional arguments:\n\
   -3                    notify readiness on fd 3\n"
 #ifdef HAVE_S6
 "\n\
-  -a                    dbus service directory (default: %s)\n\
   -l                    s6-rc livedir (default: %s)\n"
 #endif
 "\n\
@@ -47,13 +45,12 @@ int main(int argc, char* argv[]) {
 	bool notif = false;
 	bool syslog = false;
 #ifdef HAVE_S6
-	const char* dbus_servicedir = default_dbus_servicedir;
 	s6rc_livedir = default_s6rc_livedir;
 #endif
 
 	int opt;
 #ifdef HAVE_S6
-	while ((opt = getopt(argc, argv, "a:d:hl:s3")) != -1) {
+	while ((opt = getopt(argc, argv, "d:hl:s3")) != -1) {
 #else
 	while ((opt = getopt(argc, argv, "d:hs3")) != -1) {
 #endif
@@ -62,13 +59,12 @@ int main(int argc, char* argv[]) {
 			case 's': syslog = true; break;
 			case '3': check_3_open(); notif = true; break;
 #ifdef HAVE_S6
-			case 'a': dbus_servicedir = optarg; break;
 			case 'l': s6rc_livedir = optarg; break;
 #endif
 			default:
 				printf(usage, default_dbus_socket_path
 #ifdef HAVE_S6
-				, default_dbus_servicedir, default_s6rc_livedir
+				, default_s6rc_livedir
 #endif
 				);
 				return EXIT_FAILURE;
@@ -119,7 +115,7 @@ int main(int argc, char* argv[]) {
 		if (logfd >= 0) close(logfd);
 
 #ifdef HAVE_S6
-		add_dir(dbus_servicedir);
+		add_s6rc_servicedirs(s6rc_livedir);
 #endif
 
 		controller_setup(controller[0], dbus_socket_path);

@@ -4,7 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <ini.h>
+#include <skalibs/djbunix.h>
+
 #include <tllist.h>
 
 /*int service_add(Service *service) {
@@ -38,47 +39,49 @@
 }*/
 
 struct service {
-	char* name;
-	char* systemd_service;
-	char* user;
+	stralloc name;
+	stralloc s6rc;
 
 	int id;
 };
 
 tll(struct service) service_list = tll_init();
 
-#define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
+#define NAMEFILE "data/dbus-activatable-name"
+#define SERVICEDIRS "servicedirs"
+#define SIZE(array) (sizeof(array)/sizeof(*array))
 
-static int handler(void* user, const char* section, const char* name, const char* value) {
-	struct service* service = user;
-	if (MATCH("D-BUS Service", "Name")) {
-		service->name = strdup(value);
-	} else if (MATCH("D-BUS Service", "SystemdService")) {
-		service->systemd_service = strdup(value);
-	} else if (MATCH("D-BUS Service", "User")) {
-		service->user = strdup(value);
-	} else return 0;
-	return 1;
-}
-
-void add_dir(const char* path) {
+void add_s6rc_servicedirs(const char* s6rc_livedir) {
 	struct dirent **namelist;
 	int n;
 
+	size_t s6rc_livedir_len = strlen(s6rc_livedir);
+	char path[s6rc_livedir_len+1+SIZE(SERVICEDIRS)];
+	memcpy(path, s6rc_livedir, s6rc_livedir_len);
+	path[s6rc_livedir_len] = '/';
+	memcpy(path+s6rc_livedir_len+1, SERVICEDIRS, SIZE(SERVICEDIRS));
 	n = scandir(path, &namelist, NULL, alphasort);
 	if (n == -1) {
 		perror("scandir");
 		exit(EXIT_FAILURE);
 	}
 
-	chdir(path);
+	chdir(path); // TODO: remove this, the directory could be deleted by s6-rc-update
 	while (n--) {
 		if (namelist[n]->d_name[0] != '.') {
 			struct service service = {0};
-			ini_parse(namelist[n]->d_name, handler, &service);
-			if (service.name && strcmp(service.name, "org.bluez")) {
-				fprintf(stderr, "%s\n", service.name);
+			size_t d_len = strlen(namelist[n]->d_name);
+			char tmp[d_len+1+SIZE(NAMEFILE)];
+			memcpy(tmp, namelist[n]->d_name, d_len);
+			tmp[d_len] = '/';
+			memcpy(tmp+d_len+1, NAMEFILE, SIZE(NAMEFILE));
+
+			int r = openslurpclose(&service.name, tmp);
+			if (r == 1 && service.name.len > 0) {
+				service.name.s[service.name.len-1] = '\0';
+				stralloc_copyb(&service.s6rc, namelist[n]->d_name, d_len+1);
 				tll_push_back(service_list, service);
+				fprintf(stderr, "Activatable name %s provided by %s\n", service.name.s, service.s6rc.s);
 			}
 		}
 
@@ -94,7 +97,7 @@ void add_service(sd_bus* bus_controller) {
         tll_foreach(service_list, it) {
 	        char path[128];
 	        sprintf(path, "/org/bus1/DBus/Name/%d", i);
-		sd_bus_call_method(bus_controller, NULL, "/org/bus1/DBus/Broker", "org.bus1.DBus.Broker", "AddName", NULL, NULL, "osu", path, it->item.name, 0);
+		sd_bus_call_method(bus_controller, NULL, "/org/bus1/DBus/Broker", "org.bus1.DBus.Broker", "AddName", NULL, NULL, "osu", path, it->item.name.s, 0);
 		it->item.id = i;
 		i++;
         }
@@ -113,9 +116,8 @@ int start_service(int id) {
 	int r = -1;
 	struct service* service = find_service_by_id(id);
 	if (service) {
-		//printf("%s\n", service->systemd_service);
 		char cmd[256];
-		sprintf(cmd, "s6-rc -l %s change %s", s6rc_livedir, service->name);
+		sprintf(cmd, "s6-rc -l %s change %s", s6rc_livedir, service->s6rc.s);
 		fprintf(stderr, "%s\n", cmd);
 		r = system(cmd);
 	}

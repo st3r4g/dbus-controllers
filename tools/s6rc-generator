@@ -12,7 +12,9 @@ for service in "$@"; do
 	exec_=$(awk -F= '$1 == "Exec" {print $2}' "$service")
 	systemdservice_=$(awk -F= '$1 == "SystemdService" {print $2}' "$service")
 
-	mkdir $name_
+	mkdir "$name_"
+	mkdir "$name_/data"
+	echo "$name_" >> "$name_/data/dbus-activatable-name"
 	echo 'longrun' >> "$name_/type"
 	echo '#!/bin/execlineb -P' >> "$name_/run"
 	echo "$exec_" >> "$name_/run"

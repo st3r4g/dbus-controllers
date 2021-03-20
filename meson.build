@@ -28,8 +28,10 @@ add_project_arguments('-DHAVE_' + sdbus.name().to_upper() + '=1', language: 'c')
 executable('dbus-controller-dummy', ['controller.c', 'dbus.c', 'main.c', 'policy.c', 'syslog.c'], dependencies: [sdbus])
 
 if get_option('s6-rc') == true
-inih = dependency('inih')
 tllist = dependency('tllist')
 
-executable('dbus-controller-s6', ['activation.c', 'controller.c', 'dbus.c', 'main.c', 'policy.c', 'syslog.c'], dependencies: [inih, sdbus, tllist], c_args : '-DHAVE_S6=1')
+cc = meson.get_compiler('c')
+skalibs = cc.find_library('skarnet')
+
+executable('dbus-controller-s6', ['activation.c', 'controller.c', 'dbus.c', 'main.c', 'policy.c', 'syslog.c'], dependencies: [sdbus, skalibs, tllist], c_args : '-DHAVE_S6=1')
 endif
