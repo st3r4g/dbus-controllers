@@ -5,14 +5,19 @@ Provides a way lo launch [dbus-broker] without the requirement of any specific
 init system running. This means that dbus activation is disabled and service
 dependencies must be taken care of explicitly in other ways.
 
+Build the broker with `-Dlauncher=false`.
+
+Controller+broker are a replacement for the original dbus-daemon
+implementation, and are capable of running both system and session buses.
+
 This is also a starting point to explore the feasibility of a runit/s6
 controller.
 
 ## dbus-controller-s6rc
 
-Build with `meson -Ds6-rc=enabled build`
+Build with `meson -Ds6-rc=enabled build`.
 
-Usage: `dbus-controller-s6rc -h`
+Usage: `dbus-controller-s6rc -h`.
 
 The [s6-rc] controller looks in a s6-rc livedir for services containing the
 file `data/dbus-activatable-name` with a dbus activatable name provided by the
