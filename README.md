@@ -1,4 +1,7 @@
-# dbus-controller-dummy
+# dbus-controllers
+*non-systemd controllers for dbus-broker*
+
+## dbus-controller-dummy
 dummy controller for dbus-broker
 
 Provides a way lo launch [dbus-broker] without the requirement of any specific
