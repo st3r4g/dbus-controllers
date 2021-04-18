@@ -22,9 +22,9 @@ static void check_3_open() {
 	if (fcntl(3, F_GETFD) < 0) handle_error("readiness notification");
 }
 
-const char *usage = "usage: dbus-controller-dummy [-h] dbus-broker\n\
+const char *usage = "usage: dbus-controller-%s [-h] dbus-broker\n\
 \n\
-Dummy controller for dbus-broker\n\
+%s controller for dbus-broker\n\
 \n\
 positional arguments:\n\
   dbus-broker           dbus-broker to execute\n\
@@ -61,8 +61,13 @@ int main(int argc, char* argv[]) {
 #ifdef HAVE_S6
 			case 'a': s6_dbuscandir = optarg; break;
 #endif
-			default:
-				printf(usage, default_dbus_socket_path
+			default:;
+#ifdef HAVE_S6
+				const char *impl = "s6";
+#else
+				const char *impl = "dummy";
+#endif
+				printf(usage, impl, impl, default_dbus_socket_path
 #ifdef HAVE_S6
 				, default_s6_dbuscandir
 #endif
