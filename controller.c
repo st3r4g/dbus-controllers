@@ -127,7 +127,12 @@ void controller_run_signals() {
 		{ sd_bus_get_fd(bus_controller), IOPAUSE_READ, 0 },
 		{ selfpipe_init(), IOPAUSE_READ, 0 },
 	};
-	int r = selfpipe_trap(SIGTERM);
+	int r;
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGTERM);
+	sigaddset(&set, SIGINT);
+	r = selfpipe_trapset(&set);
 	for (;;) {
 		/* Wait for the next request to process */
 		r = iopause(x, 2, NULL, NULL);
@@ -138,6 +143,7 @@ void controller_run_signals() {
 				if (r < 0) handle_error("Failed to process bus");
 		if (x[1].revents & IOPAUSE_READ) {
 			int c = selfpipe_read();
+			fprintf(stderr, "caught signal %d, stopping...\n", c);
 			break;
 		}
 	}
