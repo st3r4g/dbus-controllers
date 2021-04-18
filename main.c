@@ -13,8 +13,8 @@
 
 static const char* default_dbus_socket_path = "/run/dbus/system_bus_socket";
 #ifdef HAVE_S6
-static const char* default_s6rc_livedir = "/run/s6-rc";
-extern const char* s6rc_livedir; // TODO: pass around properly
+static const char* default_s6_dbuscandir = "/run/dbus_activated_services";
+extern const char* s6_dbuscandir; // TODO: pass around properly
 #endif
 static const char* dummy_machine_id = "00000000000000000000000000000001";
 
@@ -35,7 +35,7 @@ optional arguments:\n\
   -3                    notify readiness on fd 3\n"
 #ifdef HAVE_S6
 "\n\
-  -l                    s6-rc livedir (default: %s)\n"
+  -a                    s6 scandir of dbus-activated services (default: %s)\n"
 #endif
 "\n\
   -h                    show this help message and exit\n";
@@ -45,12 +45,12 @@ int main(int argc, char* argv[]) {
 	bool notif = false;
 	bool syslog = false;
 #ifdef HAVE_S6
-	s6rc_livedir = default_s6rc_livedir;
+	s6_dbuscandir = default_s6_dbuscandir;
 #endif
 
 	int opt;
 #ifdef HAVE_S6
-	while ((opt = getopt(argc, argv, "d:hl:s3")) != -1) {
+	while ((opt = getopt(argc, argv, "d:ha:s3")) != -1) {
 #else
 	while ((opt = getopt(argc, argv, "d:hs3")) != -1) {
 #endif
@@ -59,12 +59,12 @@ int main(int argc, char* argv[]) {
 			case 's': syslog = true; break;
 			case '3': check_3_open(); notif = true; break;
 #ifdef HAVE_S6
-			case 'l': s6rc_livedir = optarg; break;
+			case 'a': s6_dbuscandir = optarg; break;
 #endif
 			default:
 				printf(usage, default_dbus_socket_path
 #ifdef HAVE_S6
-				, default_s6rc_livedir
+				, default_s6_dbuscandir
 #endif
 				);
 				return EXIT_FAILURE;
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
 		if (logfd >= 0) close(logfd);
 
 #ifdef HAVE_S6
-		add_s6rc_servicedirs(s6rc_livedir);
+		add_s6_servicedirs(s6_dbuscandir);
 #endif
 
 		controller_setup(controller[0], dbus_socket_path);
@@ -125,8 +125,11 @@ int main(int argc, char* argv[]) {
 			close(3);
 		}
 
+#ifdef HAVE_S6
+		controller_run_signals();
+#else
 		controller_run();
-		int wstatus;
-		waitpid(cpid, &wstatus, 0);
+#endif
+		// do we need to do something here to make the broker exit "cleanly"?
 	}
 }

@@ -48,25 +48,19 @@ struct service {
 tll(struct service) service_list = tll_init();
 
 #define NAMEFILE "data/dbus-activatable-name"
-#define SERVICEDIRS "servicedirs"
 #define SIZE(array) (sizeof(array)/sizeof(*array))
 
-void add_s6rc_servicedirs(const char* s6rc_livedir) {
+void add_s6_servicedirs(const char* s6_dbuscandir) {
 	struct dirent **namelist;
 	int n;
 
-	size_t s6rc_livedir_len = strlen(s6rc_livedir);
-	char path[s6rc_livedir_len+1+SIZE(SERVICEDIRS)];
-	memcpy(path, s6rc_livedir, s6rc_livedir_len);
-	path[s6rc_livedir_len] = '/';
-	memcpy(path+s6rc_livedir_len+1, SERVICEDIRS, SIZE(SERVICEDIRS));
-	n = scandir(path, &namelist, NULL, alphasort);
+	n = scandir(s6_dbuscandir, &namelist, NULL, alphasort);
 	if (n == -1) {
 		perror("scandir");
 		exit(EXIT_FAILURE);
 	}
 
-	chdir(path); // TODO: remove this, the directory could be deleted by s6-rc-update
+	chdir(s6_dbuscandir);
 	while (n--) {
 		if (namelist[n]->d_name[0] != '.') {
 			struct service service = {0};
@@ -110,16 +104,33 @@ static struct service *find_service_by_id(int id) {
         return NULL;
 }
 
-const char* s6rc_livedir; // TODO: pass around properly
+const char* s6_dbuscandir; // TODO: pass around properly
 
 int start_service(int id) {
 	int r = -1;
 	struct service* service = find_service_by_id(id);
 	if (service) {
 		char cmd[256];
-		sprintf(cmd, "s6-rc -l %s change %s", s6rc_livedir, service->s6rc.s);
+		sprintf(cmd, "s6-svc -uwu -T 1000 %s/%s", s6_dbuscandir, service->s6rc.s);
 		fprintf(stderr, "%s\n", cmd);
 		r = system(cmd);
 	}
 	return r;
+}
+
+static int stop_service(int id) {
+	int r = -1;
+	struct service* service = find_service_by_id(id);
+	if (service) {
+		char cmd[256];
+		sprintf(cmd, "s6-svc -d %s/%s", s6_dbuscandir, service->s6rc.s);
+		fprintf(stderr, "%s\n", cmd);
+		r = system(cmd);
+	}
+	return r;
+}
+
+void stop_all_services() {
+        tll_foreach(service_list, it)
+		stop_service(it->item.id);
 }

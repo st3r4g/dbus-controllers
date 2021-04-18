@@ -116,3 +116,33 @@ void controller_run() {
                 if (r < 0) handle_error("Failed to wait on bus");
         }
 }
+
+#ifdef HAVE_S6
+
+#include <skalibs/iopause.h>
+#include <skalibs/selfpipe.h>
+
+void controller_run_signals() {
+	iopause_fd x[2] = {
+		{ sd_bus_get_fd(bus_controller), IOPAUSE_READ, 0 },
+		{ selfpipe_init(), IOPAUSE_READ, 0 },
+	};
+	int r = selfpipe_trap(SIGTERM);
+	for (;;) {
+		/* Wait for the next request to process */
+		r = iopause(x, 2, NULL, NULL);
+		if (r < 0) handle_error("Failed to wait on bus");
+		if (x[0].revents & IOPAUSE_READ)
+			/* Process requests */
+			while ((r = sd_bus_process(bus_controller, NULL)))
+				if (r < 0) handle_error("Failed to process bus");
+		if (x[1].revents & IOPAUSE_READ) {
+			int c = selfpipe_read();
+			break;
+		}
+	}
+	selfpipe_finish();
+	stop_all_services();
+}
+
+#endif

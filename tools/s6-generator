@@ -1,12 +1,8 @@
 #!/bin/sh -e
-# Generate s6-rc service definitions for dbus services
+# Generate s6 service definitions for dbus services
 # usage: pass the absolute paths of dbus service definitions, i.e.
 # /usr/share/dbus-1/system-services/* (for the system bus)
 # or /usr/share/dbus-1/services/* (for the session bus)
-
-# The name of the dbus service which launches controller/broker
-# all dbus activated services depend on it
-DBUS_S6RC_SERVICE=dbus
 
 mkdir -p 'dbus'
 cd 'dbus'
@@ -20,8 +16,8 @@ for service in "$@"; do
 	mkdir "$name_/data"
 	echo "$name_" >> "$name_/data/dbus-activatable-name"
 	echo 'longrun' >> "$name_/type"
-	echo "$DBUS_S6RC_SERVICE" >> "$name_/dependencies"
 	echo '#!/bin/execlineb -P' >> "$name_/run"
 	echo "$exec_" >> "$name_/run"
 	chmod +x "$name_/run"
+	touch "$name_/down"
 done

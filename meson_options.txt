@@ -1,2 +1,2 @@
 option('sd-bus-provider', type: 'combo', choices: ['auto', 'libsystemd', 'libelogind', 'basu'], value: 'auto', description: 'Provider of the sd-bus library')
-option('s6-rc', type: 'feature', value: 'disabled')
+option('s6', type: 'feature', value: 'disabled')
