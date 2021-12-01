@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 #include "util.h"
 
+#include <assert.h>
 #include <libgen.h>
 
 static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
@@ -30,12 +31,30 @@ static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 	return 0;
 }
 
+static void parse_set_activation_enviroment(sd_bus_message *m) {
+	int r = sd_bus_message_enter_container(m, 'a', "{ss}");
+	assert(r == 1);
+
+	while (!sd_bus_message_at_end(m, 0)) {
+		const char *key, *value;
+
+		r = sd_bus_message_read(m, "{ss}", &key, &value);
+		assert(r >= 0);
+
+		fprintf(stderr, "Warning: ignoring SetActivationEnvironment %s=%s\n", key, value);
+	}
+
+	r = sd_bus_message_exit_container(m);
+	assert(r == 1);
+}
+
 static int on_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
 	sd_bus* bus_controller = userdata;
 
 	const char* object_path = sd_bus_message_get_path(m);
 	if (!sd_bus_message_is_signal(m, "org.bus1.DBus.Name", "Activate")) {
-		fprintf(stderr, "Warning: ignoring SetActivationEnvironment from %s\n", object_path);
+                assert(sd_bus_message_is_signal(m, "org.bus1.DBus.Broker", "SetActivationEnvironment"));
+		parse_set_activation_enviroment(m);
 		return 0;
 	}
 
@@ -50,24 +69,6 @@ static int on_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
 		r = sd_bus_call_method(bus_controller, NULL, object_path, "org.bus1.DBus.Name", "Reset", NULL, NULL, "t", serial);
 	}
 	return 0;
-/*        Launcher *launcher = userdata;
-        const char *path, *suffix;
-        int r = 0;
-
-        path = sd_bus_message_get_path(m);
-        if (!path)
-                return 0;
-
-        suffix = string_prefix(path, "/org/bus1/DBus/Name/");
-        if (suffix) {
-                if (sd_bus_message_is_signal(m, "org.bus1.DBus.Name", "Activate"))
-                        r = launcher_on_name_activate(launcher, m, suffix);
-        } else if (strcmp(path, "/org/bus1/DBus/Broker") == 0) {
-                if (sd_bus_message_is_signal(m, "org.bus1.DBus.Broker", "SetActivationEnvironment"))
-                        r = launcher_on_set_activation_environment(launcher, m);
-        }
-
-        return error_trace(r);*/
 }
 
 static int bus_method_reload_config(sd_bus_message *message, void *userdata, sd_bus_error *error) {
