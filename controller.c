@@ -32,11 +32,13 @@ static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 
 static int on_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
 	sd_bus* bus_controller = userdata;
-	/*
-         * TODO: properly check for signal type
-         */
+
 	const char* object_path = sd_bus_message_get_path(m);
-	//printf("signal received: %s\n", object_path);
+	if (!sd_bus_message_is_signal(m, "org.bus1.DBus.Name", "Activate")) {
+		fprintf(stderr, "Warning: ignoring SetActivationEnvironment from %s\n", object_path);
+		return 0;
+	}
+
 	uint64_t serial;
 	int r = sd_bus_message_read(m, "t", &serial);
 #ifdef HAVE_S6
