@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <libgen.h>
+#include <stdbool.h>
 
 static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 	sd_bus_message *m = NULL;
@@ -31,6 +32,12 @@ static int launcher_add_listener(sd_bus* bus_controller, int fd_listen) {
 	return 0;
 }
 
+#ifdef HAVE_S6
+#include <skalibs/djbunix.h>
+#endif
+
+bool ignore_setactivenv = false;
+
 static void parse_set_activation_enviroment(sd_bus_message *m) {
 	int r = sd_bus_message_enter_container(m, 'a', "{ss}");
 	assert(r == 1);
@@ -41,7 +48,15 @@ static void parse_set_activation_enviroment(sd_bus_message *m) {
 		r = sd_bus_message_read(m, "{ss}", &key, &value);
 		assert(r >= 0);
 
+#ifdef HAVE_S6
+		if (!ignore_setactivenv) {
+			char envfile[256];
+			snprintf(envfile, 256, ".activation-envdir/%s", key);
+			openwritenclose_unsafe(envfile, value, strlen(value));
+		}
+#else
 		fprintf(stderr, "Warning: ignoring SetActivationEnvironment %s=%s\n", key, value);
+#endif
 	}
 
 	r = sd_bus_message_exit_container(m);

@@ -4,7 +4,7 @@
 # /usr/share/dbus-1/system-services/* (for the system bus)
 # or /usr/share/dbus-1/services/* (for the session bus)
 
-mkdir -p 'dbus'
+mkdir -p 'dbus/.activation-envdir'
 cd 'dbus'
 
 for service in "$@"; do
@@ -17,7 +17,7 @@ for service in "$@"; do
 	echo "$name_" >> "$name_/data/dbus-activatable-name"
 	echo 'longrun' >> "$name_/type"
 	echo '#!/bin/execlineb -P' >> "$name_/run"
-	echo "$exec_" >> "$name_/run"
+	echo "s6-envdir ../.activation-envdir $exec_" >> "$name_/run"
 	chmod +x "$name_/run"
 	touch "$name_/down"
 done

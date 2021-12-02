@@ -15,6 +15,7 @@ static const char* default_dbus_socket_path = "/run/dbus/system_bus_socket";
 #ifdef HAVE_S6
 static const char* default_s6_dbuscandir = "/run/dbus_activated_services";
 extern const char* s6_dbuscandir; // TODO: pass around properly
+extern bool ignore_setactivenv; // TODO: pass around properly
 #endif
 static const char* dummy_machine_id = "00000000000000000000000000000001";
 
@@ -35,7 +36,8 @@ optional arguments:\n\
   -3                    notify readiness on fd 3\n"
 #ifdef HAVE_S6
 "\n\
-  -a                    s6 scandir of dbus-activated services (default: %s)\n"
+  -a                    s6 scandir of dbus-activated services (default: %s)\n\
+  -e                    ignore requests to set the activation environment\n"
 #endif
 "\n\
   -h                    show this help message and exit\n";
@@ -50,7 +52,7 @@ int main(int argc, char* argv[]) {
 
 	int opt;
 #ifdef HAVE_S6
-	while ((opt = getopt(argc, argv, "d:ha:s3")) != -1) {
+	while ((opt = getopt(argc, argv, "d:ha:es3")) != -1) {
 #else
 	while ((opt = getopt(argc, argv, "d:hs3")) != -1) {
 #endif
@@ -60,6 +62,7 @@ int main(int argc, char* argv[]) {
 			case '3': check_3_open(); notif = true; break;
 #ifdef HAVE_S6
 			case 'a': s6_dbuscandir = optarg; break;
+			case 'e': ignore_setactivenv = true; break;
 #endif
 			default:;
 #ifdef HAVE_S6
