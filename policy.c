@@ -16,6 +16,12 @@
 
 #define POLICY_PRIORITY_DEFAULT (UINT64_C(1))
 
+/*
+ * At the moment, we just allow everything
+ * The syntax of the policy is not stable yet: refer to
+ * dbus-broker/src/launch/policy.c and dbus-broker/src/bus/policy.c
+ */
+
 void policy_export_connect(sd_bus_message *m) {
         sd_bus_message_append(m, "bt", true, POLICY_PRIORITY_DEFAULT);
 }
@@ -28,7 +34,7 @@ void policy_export_own(sd_bus_message *m) {
 
 void policy_export_xmit(sd_bus_message *m) {
 	sd_bus_message_open_container(m, 'a', "(btssssuutt)");
-	sd_bus_message_append(m, "(btssssuutt)", true, POLICY_PRIORITY_DEFAULT, "", "", "", "", 0, 0, 0, 0);
+	sd_bus_message_append(m, "(btssssuutt)", true, POLICY_PRIORITY_DEFAULT, "", "", "", "", 0, 0, 0, (uint64_t)-1);
         sd_bus_message_close_container(m);
 }
 
